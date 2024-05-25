@@ -37,51 +37,39 @@ namespace Laboratorium3.Zadanie2.NET
 
             Console.WriteLine("Algorytm\t\tCzas na blok (s)\tBajty/sek (RAM)\tBajty/sek (HDD)");
 
-            for (int i = 0; i < algorithms.Count; i++)
+            for (var i = 0; i < algorithms.Count; i++)
             {
                 var algorithm = algorithms[i];
-                using (var encryptor = algorithm.CreateEncryptor())
+                using var encryptor = algorithm.CreateEncryptor();
+
+                var stopwatchBlock = Stopwatch.StartNew();
+                encryptor.TransformFinalBlock(data, 0, blockSizeBytes);
+                stopwatchBlock.Stop();
+                var timePerBlock = stopwatchBlock.Elapsed.TotalSeconds;
+
+                var stopwatchMemory = Stopwatch.StartNew();
+                for (var j = 0; j < 100; j++)
                 {
-                    var blockSize = blockSizeBytes;
-
-                    // Measure time per block
-                    var stopwatchBlock = Stopwatch.StartNew();
-                    encryptor.TransformFinalBlock(data, 0, blockSize);
-                    stopwatchBlock.Stop();
-                    var timePerBlock = stopwatchBlock.Elapsed.TotalSeconds;
-
-                    // Measure bytes per second (RAM)
-                    var stopwatchMemory = Stopwatch.StartNew();
-                    for (int j = 0; j < 100; j++) // Encrypt 100 blocks
-                    {
-                        encryptor.TransformFinalBlock(data, 0, blockSize);
-                    }
-                    stopwatchMemory.Stop();
-                    var bytesPerSecondRam = 100 * blockSize / stopwatchMemory.Elapsed.TotalSeconds;
-
-                    // Measure bytes per second (HDD)
-                    const string filePath = "temp.dat";
-                    File.WriteAllBytes(filePath, data);
-                    var stopwatchDisk = Stopwatch.StartNew();
-                    for (int j = 0; j < 10; j++) // Encrypt 10 blocks (write and read from HDD)
-                    {
-                        using (var fileStream = File.OpenRead(filePath))
-                        {
-                            using (var cryptoStream = new CryptoStream(fileStream, encryptor, CryptoStreamMode.Read))
-                            {
-                                using (var memoryStream = new MemoryStream())
-                                {
-                                    cryptoStream.CopyTo(memoryStream);
-                                }
-                            }
-                        }
-                    }
-                    stopwatchDisk.Stop();
-                    var bytesPerSecondHdd = 10 * blockSize / stopwatchDisk.Elapsed.TotalSeconds;
-                    File.Delete(filePath);
-
-                    Console.WriteLine($"{algorithmNames[i]}\t{timePerBlock}\t\t{bytesPerSecondRam}\t\t{bytesPerSecondHdd}");
+                    encryptor.TransformFinalBlock(data, 0, blockSizeBytes);
                 }
+                stopwatchMemory.Stop();
+                var bytesPerSecondRam = 100 * blockSizeBytes / stopwatchMemory.Elapsed.TotalSeconds;
+                    
+                const string filePath = "temp.dat";
+                File.WriteAllBytes(filePath, data);
+                var stopwatchDisk = Stopwatch.StartNew();
+                for (var j = 0; j < 10; j++)
+                {
+                    using var fileStream = File.OpenRead(filePath);
+                    using var cryptoStream = new CryptoStream(fileStream, encryptor, CryptoStreamMode.Read);
+                    using var memoryStream = new MemoryStream();
+                    cryptoStream.CopyTo(memoryStream);
+                }
+                stopwatchDisk.Stop();
+                var bytesPerSecondHdd = 10 * blockSizeBytes / stopwatchDisk.Elapsed.TotalSeconds;
+                File.Delete(filePath);
+
+                Console.WriteLine($"{algorithmNames[i]}\t{timePerBlock}\t\t{bytesPerSecondRam}\t\t{bytesPerSecondHdd}");
             }
         }
     }
